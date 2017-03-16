@@ -269,7 +269,8 @@ recomb_res <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
 })) 
 
 recomb_res_summ <- group_by(recomb_res, num) %>% 
-  summarise(XYrr = mean(XYrr))
+  summarise(mean_XYrr = mean(XYrr),
+            median_XYrr = median(XYrr))
 
 
 # save results -----------------------------------
