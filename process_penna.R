@@ -192,13 +192,17 @@ all_defect_summ <- do.call(rbind, lapply(colnames(all_defect[-1]), function(sing
   chr_names[length(chr_ranges)] <- "Y"
   chr_names[length(chr_ranges) - 1] <- "X"
   
-  data.frame(chr = chr_ind, value = all_defect[[single_step]]) %>% 
-    group_by(chr) %>% 
+  data.frame(chr = chr_ind, value = all_defect[[single_step]],
+             pos = 1L:length(chr_ind)) %>% 
+    group_by(chr, pos) %>% 
     summarise(mean_defect = mean(value)) %>% 
+    ungroup() %>% 
     mutate(step = single_step, 
            chr = factor(chr, labels = chr_names)) 
 })) %>% mutate(step = unlist(strsplit(step, "c.txt", fixed = TRUE))) %>% 
-  mutate(step = as.numeric(substr(step, 7, nchar(step))))
+  mutate(step = as.numeric(substr(step, 7, nchar(step)))) %>% 
+  group_by(chr) %>% 
+  mutate(pos = pos - min(pos) + 1)
 
 res_defect <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
   all_files <- list.files(paste0(ith_replicate, "/"))
