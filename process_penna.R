@@ -18,7 +18,6 @@ dir_name <- last(strsplit(getwd(), "/")[[1]])
 replicate_list <- list.files()[!grepl(".", list.files(), fixed = TRUE)]
 
 
-
 # population analysis - specimen demography --------------------------------
 
 res_work <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
@@ -59,9 +58,35 @@ step_stats <- do.call(rbind, lapply(main_steps, function(ith_step) {
 })) %>% mutate(total = male + female, ratio = male/female) %>% 
   cbind(status = "all", .)
 
+step_age_str_raw <- do.call(rbind, lapply(main_steps, function(ith_step) {
+  sub_dat <- res_work[which(all_steps %in% (ith_step - 9):ith_step)]
+  sub_dat_male <- cbind(res_work["replicate"], sub_dat[grep("a1", colnames(sub_dat))])
+  
+  male_mean <- group_by(sub_dat_male, replicate) %>% 
+    ungroup() %>% 
+    select(-replicate) %>% 
+    rowMeans()
+  
+  sub_dat_female <- cbind(res_work["replicate"], sub_dat[grep("a2", colnames(sub_dat))])
+  female_mean <- group_by(sub_dat_male, replicate) %>% 
+    ungroup() %>% 
+    select(-replicate) %>% 
+    rowMeans() 
+  
+  data.frame(step = ith_step,
+             replicate = res_work["replicate"], 
+             age = 1L:unique(table(res_work[["replicate"]])),
+             n_male = male_mean,
+             n_female = female_mean)
+}))
+
+step_age_str_sum <- group_by(step_age_str_raw, step, age) %>% 
+  summarise(mean_male = mean(n_male), mean_female = mean(n_female))
+
 step_children <- do.call(rbind, lapply(main_steps, function(ith_step) {
   sub_dat <- res_work[which(all_steps %in% (ith_step - 9):ith_step)]
   sub_dat_male <- cbind(res_work["replicate"], sub_dat[grep("a1", colnames(sub_dat))])
+
   male_mean <- group_by(sub_dat_male, replicate) %>% 
     slice(1) %>% 
     ungroup() %>% 
@@ -119,9 +144,61 @@ all_replicates_chr <- mutate(all_replicates,
                              n_x = 2*female + male,
                              n_a = (male+female)*2)
 
-
-
 # defect analysis --------------------------------
+
+all_defect <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
+  all_files <- list.files(paste0(ith_replicate, "/"))
+  chr_files <- all_files[grepl(".txt", all_files, fixed = TRUE) & grepl("sc_chr", all_files)]
+  
+  dat <- do.call(cbind, lapply(chr_files, function(ith_file) {
+    read.table(paste0(ith_replicate, "/", ith_file))
+  }))
+  
+  colnames(dat) <- chr_files
+  
+  data.frame(replicate = ith_replicate, dat)
+}))
+
+
+all_defect_summ <- do.call(rbind, lapply(colnames(all_defect[-1]), function(single_step) {
+  all_files <- list.files(replicate_list[[1]])
+  conf_file <- all_files[!grepl(".", all_files, fixed = TRUE)]
+  
+  chr_pop <- readLines(paste0(replicate_list[[1]], "/", conf_file))[1]
+  
+  raw_ranges <- strsplit(chr_pop, "[", fixed = TRUE)[[1]] %>%
+    last %>% 
+    strsplit("]", fixed = TRUE) %>% 
+    unlist %>% 
+    first %>% 
+    strsplit(",", fixed = TRUE) %>% 
+    unlist %>% 
+    as.numeric
+  
+  ####################################            |
+  #                                               |
+  #               MNOŻNIK 64                    #####
+  #                                              ###
+  ###########################################     #
+  chr_ranges <- c(raw_ranges, last(raw_ranges)) * 64
+  
+  chr_ind <- lapply(1L:length(chr_ranges), function(single_chr) {
+    rep(single_chr, chr_ranges[single_chr])
+  }) %>% 
+    unlist %>% 
+    factor
+  
+  chr_names <- 1L:length(chr_ranges)
+  chr_names[length(chr_ranges)] <- "Y"
+  chr_names[length(chr_ranges) - 1] <- "X"
+  
+  data.frame(chr = chr_ind, value = all_defect[[single_step]]) %>% 
+    group_by(chr) %>% 
+    summarise(mean_defect = mean(value)) %>% 
+    mutate(step = single_step, 
+           chr = factor(chr, labels = chr_names)) 
+})) %>% mutate(step = unlist(strsplit(step, "c.txt", fixed = TRUE))) %>% 
+  mutate(step = as.numeric(substr(step, 7, nchar(step))))
 
 res_defect <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
   all_files <- list.files(paste0(ith_replicate, "/"))
@@ -273,6 +350,7 @@ recomb_res_summ <- group_by(recomb_res, num) %>%
             median_XYrr = median(XYrr))
 
 
+
 # save results -----------------------------------
 
 dir_res_name <- paste0(dir_name, "_results_n", length(replicate_list), "/")
@@ -282,9 +360,16 @@ WriteXLS(all_replicates_chr, ExcelFileName = paste0(dir_res_name, dir_name, "_al
 WriteXLS(res_work, ExcelFileName = paste0(dir_res_name, dir_name, "_raw.xlsx"))
 WriteXLS(summary_stats, ExcelFileName = paste0(dir_res_name, dir_name, ".xlsx"))
 
+WriteXLS(step_age_str_raw, ExcelFileName = paste0(dir_res_name, dir_name, "_age_str_raw.xlsx"))
+WriteXLS(step_age_str_sum, ExcelFileName = paste0(dir_res_name, dir_name, "_age_str_sum.xlsx"))
+
 WriteXLS(res_defect, ExcelFileName = paste0(dir_res_name, dir_name, "_defect.xlsx"))
 WriteXLS(norm_chr, ExcelFileName = paste0(dir_res_name, dir_name, "_norm_defect.xlsx"))
 WriteXLS(summ_norm_chr, ExcelFileName = paste0(dir_res_name, dir_name, "_summ_norm_defect.xlsx"))
 
+WriteXLS(all_defect_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_defect_summ.xlsx"))
+write.csv(all_defect, paste0(dir_res_name, dir_name, "_all_defect.csv"))
+         
 WriteXLS(recomb_res, ExcelFileName = paste0(dir_res_name, dir_name, "_recomb.xlsx"))
-WriteXLS(recomb_res_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_summ_recomb.xlsx"))
+WriteXLS(recomb_res_summ, ExcelFileName = )
+
