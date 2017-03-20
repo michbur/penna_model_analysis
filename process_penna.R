@@ -375,5 +375,5 @@ WriteXLS(all_defect_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_defec
 write.csv(all_defect, paste0(dir_res_name, dir_name, "_all_defect.csv"))
          
 WriteXLS(recomb_res, ExcelFileName = paste0(dir_res_name, dir_name, "_recomb.xlsx"))
-WriteXLS(recomb_res_summ, ExcelFileName = )
+WriteXLS(recomb_res_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_summ_recomb.xlsx"))
 
