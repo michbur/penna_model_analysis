@@ -68,7 +68,7 @@ step_age_str_raw <- do.call(rbind, lapply(main_steps, function(ith_step) {
     rowMeans()
   
   sub_dat_female <- cbind(res_work["replicate"], sub_dat[grep("a2", colnames(sub_dat))])
-  female_mean <- group_by(sub_dat_male, replicate) %>% 
+  female_mean <- group_by(sub_dat_female, replicate) %>% 
     ungroup() %>% 
     select(-replicate) %>% 
     rowMeans() 
@@ -79,6 +79,14 @@ step_age_str_raw <- do.call(rbind, lapply(main_steps, function(ith_step) {
              n_male = male_mean,
              n_female = female_mean)
 }))
+
+
+step_age_str_raw_ls <- cbind(filter(step_age_str_raw, replicate == levels(step_age_str_raw[["replicate"]])[1]) %>% 
+                               select(age, step),
+                             do.call(cbind, lapply(levels(step_age_str_raw[["replicate"]]), 
+                                                   function(ith_replicate) {
+                                                     filter(step_age_str_raw, replicate == ith_replicate) %>% select(-age, -step)
+                                                   })))
 
 step_age_str_sum <- group_by(step_age_str_raw, step, age) %>% 
   summarise(mean_male = mean(n_male), mean_female = mean(n_female))
@@ -192,17 +200,31 @@ all_defect_summ <- do.call(rbind, lapply(colnames(all_defect[-1]), function(sing
   chr_names[length(chr_ranges)] <- "Y"
   chr_names[length(chr_ranges) - 1] <- "X"
   
-  data.frame(chr = chr_ind, value = all_defect[[single_step]],
+  data.frame(replicate = all_defect[["replicate"]],
+             step = as.numeric(sapply(strsplit(unlist(strsplit(single_step, "c.txt", fixed = TRUE)), "sc_chr"), last)),
+             chr = chr_ind, 
+             value = all_defect[[single_step]],
              pos = 1L:length(chr_ind)) %>% 
-    group_by(chr, pos) %>% 
-    summarise(mean_defect = mean(value)) %>% 
+    inner_join(filter(all_replicates_chr, status == "all")[, c("step", "replicate", "n_y", "n_x", "n_a")]) %>% 
+    mutate(norm_value = ifelse(chr == 23, value/n_x, ifelse(chr == 24, value/n_y, value/n_a))) %>% 
+    group_by(chr, step, pos) %>% 
+    summarise(mean_defect = mean(value),
+              mean_norm_defect = mean(norm_value)) %>% 
     ungroup() %>% 
-    mutate(step = single_step, 
-           chr = factor(chr, labels = chr_names)) 
-})) %>% mutate(step = unlist(strsplit(step, "c.txt", fixed = TRUE))) %>% 
-  mutate(step = as.numeric(substr(step, 7, nchar(step)))) %>% 
+    mutate(chr = factor(chr, labels = chr_names)) 
+})) %>% 
   group_by(chr) %>% 
-  mutate(pos = pos - min(pos) + 1)
+  mutate(pos = pos - min(pos) + 1) %>% 
+  ungroup
+
+
+all_defect_summ_ls <- cbind(filter(all_defect_summ, step == unique(all_defect_summ[["step"]])[1]) %>% 
+        select(chr, pos), 
+      do.call(cbind, lapply(unique(all_defect_summ[["step"]]), function(ith_step) {
+        filter(all_defect_summ, step == ith_step) %>% 
+          select(-chr, -pos)
+      }))
+)
 
 res_defect <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
   all_files <- list.files(paste0(ith_replicate, "/"))
@@ -312,6 +334,15 @@ res_defect <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
                    }))
 }))
 
+# res_defect_ls <- cbind(filter(res_defect, replicate == levels(res_defect[["replicate"]])[1]) %>% 
+#                                select(age, step),
+#                              do.call(cbind, lapply(levels(res_defect[["replicate"]]), 
+#                                                    function(ith_replicate) {
+#                                                      filter(res_defect, replicate == ith_replicate) %>% 
+#                                                        select(-chr, -step)
+#                                                    })))
+
+
 joined_chr <- filter(all_replicates_chr, status == "all") %>% 
   select(step, replicate, n_x, n_y, n_a) %>% 
   inner_join(res_defect, by = c("step", "replicate")) 
@@ -349,11 +380,15 @@ recomb_res <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
   cbind(replicate = ith_replicate, res)
 })) 
 
+recomb_res_ls <- do.call(cbind, lapply(levels(recomb_res[["replicate"]]), function(ith_replicate) {
+  filter(recomb_res, replicate == ith_replicate)
+}))
+       
+
 recomb_res_summ <- group_by(recomb_res, num) %>% 
   summarise(mean_XYrr = mean(XYrr),
-            median_XYrr = median(XYrr))
-
-
+            median_XYrr = median(XYrr),
+            frac0 = mean(XYrr == 0))
 
 # save results -----------------------------------
 
@@ -361,19 +396,24 @@ dir_res_name <- paste0(dir_name, "_results_n", length(replicate_list), "/")
 dir.create(dir_res_name)
 
 WriteXLS(all_replicates_chr, ExcelFileName = paste0(dir_res_name, dir_name, "_all_replicates.xlsx"))
-WriteXLS(res_work, ExcelFileName = paste0(dir_res_name, dir_name, "_raw.xlsx"))
+WriteXLS(res_work, ExcelFileName = paste0(dir_res_name, dir_name, "age_raw.xlsx"))
 WriteXLS(summary_stats, ExcelFileName = paste0(dir_res_name, dir_name, ".xlsx"))
 
 WriteXLS(step_age_str_raw, ExcelFileName = paste0(dir_res_name, dir_name, "_age_str_raw.xlsx"))
+# same as above, but horizontal
+WriteXLS(step_age_str_raw_ls, ExcelFileName = paste0(dir_res_name, dir_name, "_age_str_raw_ls.xlsx"))
 WriteXLS(step_age_str_sum, ExcelFileName = paste0(dir_res_name, dir_name, "_age_str_sum.xlsx"))
 
 WriteXLS(res_defect, ExcelFileName = paste0(dir_res_name, dir_name, "_defect.xlsx"))
 WriteXLS(norm_chr, ExcelFileName = paste0(dir_res_name, dir_name, "_norm_defect.xlsx"))
 WriteXLS(summ_norm_chr, ExcelFileName = paste0(dir_res_name, dir_name, "_summ_norm_defect.xlsx"))
 
-WriteXLS(all_defect_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_defect_summ.xlsx"))
-write.csv(all_defect, paste0(dir_res_name, dir_name, "_all_defect.csv"))
+WriteXLS(all_defect_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_defect_summ_pos.xlsx"))
+# same as above, but horizontal
+WriteXLS(all_defect_summ_ls, ExcelFileName = paste0(dir_res_name, dir_name, "_defect_summ_pos_ls.xlsx"))
+#write.csv(all_defect, paste0(dir_res_name, dir_name, "_all_defect_pos.csv"))
          
 WriteXLS(recomb_res, ExcelFileName = paste0(dir_res_name, dir_name, "_recomb.xlsx"))
+# same as above, but horizontal
+WriteXLS(recomb_res_ls, ExcelFileName = paste0(dir_res_name, dir_name, "_recomb_ls.xlsx"))
 WriteXLS(recomb_res_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_summ_recomb.xlsx"))
-
