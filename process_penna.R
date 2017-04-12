@@ -94,7 +94,7 @@ step_age_str_sum <- group_by(step_age_str_raw, step, age) %>%
 step_children <- do.call(rbind, lapply(main_steps, function(ith_step) {
   sub_dat <- res_work[which(all_steps %in% (ith_step - 9):ith_step)]
   sub_dat_male <- cbind(res_work["replicate"], sub_dat[grep("a1", colnames(sub_dat))])
-
+  
   male_mean <- group_by(sub_dat_male, replicate) %>% 
     slice(1) %>% 
     ungroup() %>% 
@@ -127,7 +127,7 @@ before_reproduction <- do.call(rbind, lapply(main_steps, function(ith_step) {
 })) %>% 
   mutate(total = male + female, ratio = male/female) %>% 
   cbind(status = "<R", .)
-  
+
 after_reproduction <- do.call(rbind, lapply(main_steps, function(ith_step) {
   sub_dat <- select(res_work, 1, which(all_steps == ith_step)) 
   colnames(sub_dat)[2L:3] <- c("male", "female")
@@ -219,11 +219,11 @@ all_defect_summ <- do.call(rbind, lapply(colnames(all_defect[-1]), function(sing
 
 
 all_defect_summ_ls <- cbind(filter(all_defect_summ, step == unique(all_defect_summ[["step"]])[1]) %>% 
-        select(chr, pos), 
-      do.call(cbind, lapply(unique(all_defect_summ[["step"]]), function(ith_step) {
-        filter(all_defect_summ, step == ith_step) %>% 
-          select(-chr, -pos)
-      }))
+                              select(chr, pos), 
+                            do.call(cbind, lapply(unique(all_defect_summ[["step"]]), function(ith_step) {
+                              filter(all_defect_summ, step == ith_step) %>% 
+                                select(-chr, -pos)
+                            }))
 )
 
 res_defect <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
@@ -278,60 +278,60 @@ res_defect <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
   chr_names[length(chr_ranges) - 1] <- "X"
   
   chr_dat <- do.call(rbind, lapply(chr_files, function(ith_file) {
-                     
-                     res <- read.table(paste0(ith_replicate, "/", ith_file)) %>%
-                       unlist %>% 
-                       split(chr_ind)
-                     
-                     total <- sapply(res, sum)
-                     
-                     birth <- sapply(res, function(single_chr) {
-                       sum(single_chr[1L:(birth_age/128 * length(single_chr))])
-                     })
-                     
-                     reprod <- sapply(res, function(single_chr) {
-                       sum(single_chr[1L:(reprod_age/128 * length(single_chr))])
-                     })
-                     
-                     youth <- reprod - birth
-                     
-                     adults <- sapply(res, function(single_chr) {
-                       sum(single_chr[(reprod_age/128 * length(single_chr) + 1):length(single_chr)])
-                     })
-                     
-                     step_name <- strsplit(ith_file, "sc_chr") %>% 
-                       unlist %>% 
-                       last %>% 
-                       strsplit("c.txt", fixed = TRUE) %>% 
-                       unlist %>% 
-                       as.numeric
-                     
-                     lengths_chr <- lengths(res)
-                     lengths_chr_df <- data.frame(chr = chr_names,
-                                                  total = lengths_chr, 
-                                                  birth = birth_age/128 * lengths_chr, 
-                                                  reprod = reprod_age/128 * lengths_chr,
-                                                  youth = reprod_age/128 * lengths_chr - birth_age/128 * lengths_chr, 
-                                                  adults = lengths_chr - reprod_age/128 * lengths_chr) %>% 
-                       melt(variable.name = "defect_status",
-                            value.name = "n_chr",
-                            id.var = "chr") 
-                     
-                     defect_chr_df <- data.frame(chr = chr_names,
-                                                 total = total, 
-                                                 birth = birth, 
-                                                 reprod = reprod, 
-                                                 youth = youth, 
-                                                 adults = adults) %>% 
-                       melt(variable.name = "defect_status",
-                            value.name = "n_defect",
-                            id.var = "chr") 
-                     
-                     data.frame(replicate = ith_replicate,
-                                step = step_name,
-                                inner_join(defect_chr_df, lengths_chr_df, 
-                                           by = c("chr", "defect_status")))
-                   }))
+    
+    res <- read.table(paste0(ith_replicate, "/", ith_file)) %>%
+      unlist %>% 
+      split(chr_ind)
+    
+    total <- sapply(res, sum)
+    
+    birth <- sapply(res, function(single_chr) {
+      sum(single_chr[1L:(birth_age/128 * length(single_chr))])
+    })
+    
+    reprod <- sapply(res, function(single_chr) {
+      sum(single_chr[1L:(reprod_age/128 * length(single_chr))])
+    })
+    
+    youth <- reprod - birth
+    
+    adults <- sapply(res, function(single_chr) {
+      sum(single_chr[(reprod_age/128 * length(single_chr) + 1):length(single_chr)])
+    })
+    
+    step_name <- strsplit(ith_file, "sc_chr") %>% 
+      unlist %>% 
+      last %>% 
+      strsplit("c.txt", fixed = TRUE) %>% 
+      unlist %>% 
+      as.numeric
+    
+    lengths_chr <- lengths(res)
+    lengths_chr_df <- data.frame(chr = chr_names,
+                                 total = lengths_chr, 
+                                 birth = birth_age/128 * lengths_chr, 
+                                 reprod = reprod_age/128 * lengths_chr,
+                                 youth = reprod_age/128 * lengths_chr - birth_age/128 * lengths_chr, 
+                                 adults = lengths_chr - reprod_age/128 * lengths_chr) %>% 
+      melt(variable.name = "defect_status",
+           value.name = "n_chr",
+           id.var = "chr") 
+    
+    defect_chr_df <- data.frame(chr = chr_names,
+                                total = total, 
+                                birth = birth, 
+                                reprod = reprod, 
+                                youth = youth, 
+                                adults = adults) %>% 
+      melt(variable.name = "defect_status",
+           value.name = "n_defect",
+           id.var = "chr") 
+    
+    data.frame(replicate = ith_replicate,
+               step = step_name,
+               inner_join(defect_chr_df, lengths_chr_df, 
+                          by = c("chr", "defect_status")))
+  }))
 }))
 
 # res_defect_ls <- cbind(filter(res_defect, replicate == levels(res_defect[["replicate"]])[1]) %>% 
@@ -348,20 +348,20 @@ joined_chr <- filter(all_replicates_chr, status == "all") %>%
   inner_join(res_defect, by = c("step", "replicate")) 
 
 norm_chr_raw <- rbind(filter(joined_chr, chr == "X") %>% 
-        mutate(normalized = n_defect/(n_chr * n_x)),
-      filter(joined_chr, chr == "Y") %>% 
-        mutate(normalized = n_defect/(n_chr * n_y)),
-      filter(joined_chr, !(chr %in% c("X", "Y"))) %>% 
-        mutate(normalized = n_defect/(n_chr * n_a)))
+                        mutate(normalized = n_defect/(n_chr * n_x)),
+                      filter(joined_chr, chr == "Y") %>% 
+                        mutate(normalized = n_defect/(n_chr * n_y)),
+                      filter(joined_chr, !(chr %in% c("X", "Y"))) %>% 
+                        mutate(normalized = n_defect/(n_chr * n_a)))
 
 norm_chr <- rbind(cbind(filter(norm_chr_raw, chr == "X"), 
-            ch10 = filter(norm_chr_raw, chr == "10")[["normalized"]]) %>% 
-        mutate(normalized = normalized/ch10,
-               chr = "X/10"),
-      cbind(filter(norm_chr_raw, chr == "Y"), 
-            ch10 = filter(norm_chr_raw, chr == "10")[["normalized"]]) %>% 
-        mutate(normalized = normalized/ch10,
-               chr = "Y/10")) %>% 
+                        ch10 = filter(norm_chr_raw, chr == "10")[["normalized"]]) %>% 
+                    mutate(normalized = normalized/ch10,
+                           chr = "X/10"),
+                  cbind(filter(norm_chr_raw, chr == "Y"), 
+                        ch10 = filter(norm_chr_raw, chr == "10")[["normalized"]]) %>% 
+                    mutate(normalized = normalized/ch10,
+                           chr = "Y/10")) %>% 
   select(-ch10) %>% 
   rbind(norm_chr_raw, .) %>% 
   mutate(chr = suppressWarnings(factor(chr, levels = levels(chr)[order(as.numeric(levels(chr)))]))) %>% 
@@ -380,10 +380,20 @@ recomb_res <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
   cbind(replicate = ith_replicate, res)
 })) 
 
-recomb_res_ls <- do.call(cbind, lapply(levels(recomb_res[["replicate"]]), function(ith_replicate) {
+recomb_res_list <- lapply(levels(recomb_res[["replicate"]]), function(ith_replicate) {
   filter(recomb_res, replicate == ith_replicate)
+})
+
+max_recomb_row <- max(sapply(recomb_res_list, nrow))
+
+recomb_res_ls <- do.call(cbind, lapply(recomb_res_list, function(ith_recomb) {
+  new_rows <- rep(NA, (max_recomb_row - nrow(ith_recomb))*ncol(ith_recomb)) %>% 
+    matrix(ncol = ncol(ith_recomb)) %>% 
+    data.frame
+  
+  colnames(new_rows) <- colnames(ith_recomb)
+  rbind(ith_recomb, new_rows) 
 }))
-       
 
 recomb_res_summ <- group_by(recomb_res, num) %>% 
   summarise(mean_XYrr = mean(XYrr),
@@ -412,7 +422,7 @@ WriteXLS(all_defect_summ, ExcelFileName = paste0(dir_res_name, dir_name, "_defec
 # same as above, but horizontal
 WriteXLS(all_defect_summ_ls, ExcelFileName = paste0(dir_res_name, dir_name, "_defect_summ_pos_ls.xlsx"))
 #write.csv(all_defect, paste0(dir_res_name, dir_name, "_all_defect_pos.csv"))
-         
+
 WriteXLS(recomb_res, ExcelFileName = paste0(dir_res_name, dir_name, "_recomb.xlsx"))
 # same as above, but horizontal
 WriteXLS(recomb_res_ls, ExcelFileName = paste0(dir_res_name, dir_name, "_recomb_ls.xlsx"))
