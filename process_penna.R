@@ -28,7 +28,7 @@ res_work <- do.call(rbind, lapply(replicate_list, function(ith_replicate) {
   age_dat <- cbind(replicate = ith_replicate, 
                    do.call(cbind, lapply(age_files, function(ith_file) {
                      res <- read.table(paste0(ith_replicate, "/", ith_file)) %>% 
-                       slice(76L:nrow(.)) %>% 
+                       #slice(76L:nrow(.)) %>% 
                        select(V1, V2)
                      
                      colnames(res) <- paste0(strsplit(ith_file, ".", fixed = TRUE)[[1]][1], 1L:2)
@@ -145,7 +145,7 @@ all_replicates <- rbind(step_stats, step_children, before_reproduction, after_re
 summary_stats <- all_replicates %>% 
   mutate(step = factor(step)) %>% 
   group_by(status, step) %>% 
-  summarise_each(funs(mean), -replicate) 
+  summarise_at(c("male", "female", "total", "ratio"), funs(mean)) 
 
 all_replicates_chr <- mutate(all_replicates, 
                              n_y = male,
@@ -200,18 +200,23 @@ all_defect_summ <- do.call(rbind, lapply(colnames(all_defect[-1]), function(sing
   chr_names[length(chr_ranges)] <- "Y"
   chr_names[length(chr_ranges) - 1] <- "X"
   
-  data.frame(replicate = all_defect[["replicate"]],
+  intermediate_df <- data.frame(replicate = all_defect[["replicate"]],
              step = as.numeric(sapply(strsplit(unlist(strsplit(single_step, "c.txt", fixed = TRUE)), "sc_chr"), last)),
              chr = chr_ind, 
              value = all_defect[[single_step]],
              pos = 1L:length(chr_ind)) %>% 
-    inner_join(filter(all_replicates_chr, status == "all")[, c("step", "replicate", "n_y", "n_x", "n_a")]) %>% 
-    mutate(norm_value = ifelse(chr == 23, value/n_x, ifelse(chr == 24, value/n_y, value/n_a))) %>% 
-    group_by(chr, step, pos) %>% 
-    summarise(mean_defect = mean(value),
-              mean_norm_defect = mean(norm_value)) %>% 
-    ungroup() %>% 
-    mutate(chr = factor(chr, labels = chr_names)) 
+  inner_join(filter(all_replicates_chr, status == "all")[, c("step", "replicate", "n_y", "n_x", "n_a")]) 
+  
+  if(nrow(intermediate_df) != 0) {
+    mutate(intermediate_df, norm_value = ifelse(chr == 23, value/n_x, ifelse(chr == 24, value/n_y, value/n_a))) %>% 
+      group_by(chr, step, pos) %>% 
+      summarise(mean_defect = mean(value),
+                mean_norm_defect = mean(norm_value)) %>% 
+      ungroup() %>% 
+      mutate(chr = factor(chr, labels = chr_names)) 
+  } else {
+    intermediate_df
+  }
 })) %>% 
   group_by(chr) %>% 
   mutate(pos = pos - min(pos) + 1) %>% 
